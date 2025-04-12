@@ -1,0 +1,145 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyNjSTaPLOWNlLFp538w/zC8",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/Baba-tt/testrepo/blob/master/liberian_english\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "5TE6QXhkdvO4"
+      },
+      "outputs": [],
+      "source": [
+        "!pip install git+https://github.com/openai/whisper.git\n",
+        "!pip install yt-dlp\n",
+        "\n",
+        "import os\n",
+        "import yt_dlp\n",
+        "import librosa\n",
+        "import soundfile as sf\n",
+        "import whisper"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Function to create and populate youtube_links.txt if it doesn't exist\n",
+        "def create_youtube_links_file(filename=\"youtube_links.txt\", links=None):\n",
+        "    \"\"\"Creates a file with YouTube links if it doesn't exist.\"\"\"\n",
+        "    if not os.path.exists(filename):\n",
+        "        with open(filename, \"w\") as f:\n",
+        "            if links:\n",
+        "                f.write(\"\\n\".join(links))\n",
+        "            else:\n",
+        "                print(f\"File '{filename}' created. Please add YouTube links to it, one per line.\")\n",
+        "\n",
+        "# --- Usage Example ---\n",
+        "youtube_links = [\n",
+        "    \"https://www.youtube.com/watch?v=2yX_ntSv3J8\",\n",
+        "    \"https://www.youtube.com/watch?v=KHIfc-x5-cc\",\n",
+        "    # ... add more links here\n",
+        "]\n",
+        "create_youtube_links_file(links=youtube_links)\n",
+        "\n",
+        "def process_youtube_audio(url, output_dir=\"segmented_audio\", segment_length=30):\n",
+        "    \"\"\"Downloads, segments, and transcribes audio from a YouTube URL.\"\"\"\n",
+        "    try:\n",
+        "        ydl_opts = {\n",
+        "            'format': 'bestaudio/best',\n",
+        "            'outtmpl': '%(title)s.%(ext)s',\n",
+        "            'noplaylist': True,\n",
+        "            'postprocessors': [{\n",
+        "                'key': 'FFmpegExtractAudio',\n",
+        "                'preferredcodec': 'wav',\n",
+        "            }],\n",
+        "            # Add options to bypass geo-restrictions and anti-bot measures\n",
+        "            \"geo_bypass\": True,\n",
+        "            \"source_address\": \"0.0.0.0\"\n",
+        "        }\n",
+        "        with yt_dlp.YoutubeDL(ydl_opts) as ydl:\n",
+        "            ydl.download([url])\n",
+        "            filename = ydl.prepare_filename(ydl.extract_info(url, download=False))\n",
+        "            filename = filename.replace(\".webm\", \".wav\")  # force to download as .wav\n",
+        "\n",
+        "        y, sr = librosa.load(filename)\n",
+        "        total_length = librosa.get_duration(y=y, sr=sr)\n",
+        "        num_segments = int(total_length // segment_length)\n",
+        "        os.makedirs(output_dir, exist_ok=True)\n",
+        "\n",
+        "        for i in range(num_segments):\n",
+        "            start_sample = i * segment_length * sr\n",
+        "            end_sample = min((i + 1) * segment_length * sr, len(y))\n",
+        "            segment = y[start_sample:end_sample]\n",
+        "            segment_file = os.path.join(output_dir, f\"{os.path.splitext(os.path.basename(filename))[0]}_segment_{i + 1}.wav\")\n",
+        "            sf.write(segment_file, segment, sr)\n",
+        "\n",
+        "            # Transcribe using Whisper\n",
+        "            model = whisper.load_model(\"base\")\n",
+        "            result = model.transcribe(segment_file)\n",
+        "\n",
+        "            # Append data for CSV\n",
+        "            data.append([segment_file, result['text']])\n",
+        "\n",
+        "        os.remove(filename)\n",
+        "\n",
+        "    except Exception as e:\n",
+        "        print(f\"Error processing {url}: {e}\")\n",
+        "\n",
+        "  # --- Main Execution ---\n",
+        "data = []  # Initialize data list here\n",
+        "with open('youtube_links.txt', 'r') as f:\n",
+        "    for line in f:\n",
+        "        url = line.strip()\n",
+        "        process_youtube_audio(url)\n",
+        "\n",
+        "\n",
+        "\n",
+        "\n",
+        "\n"
+      ],
+      "metadata": {
+        "id": "UiHa8Nufd0be"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Create DataFrame and save to CSV\n",
+        "import pandas as pd\n",
+        "df = pd.DataFrame(data, columns=['filename', 'transcription'])\n",
+        "df.to_csv('/content/liberian_english_data.csv', index=False)"
+      ],
+      "metadata": {
+        "id": "jrD9T45PmcnD"
+      },
+      "execution_count": 15,
+      "outputs": []
+    }
+  ]
+}
